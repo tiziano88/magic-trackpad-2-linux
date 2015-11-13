@@ -38,7 +38,7 @@ EndSection
 
 I then restarted X with `sudo restart lightdm` (note: it closes all your running programs, so make sure you know what your are doing).
 
-After this, the trackpad stopped working entirely (not even basic movements and click), and I then looked into the X logs, and found the following:
+After this, the trackpad stopped working entirely (not even basic movements and click), and I then looked into the X logs (`/var/log/Xorg.0.log`), and found the following:
 
 ```
 TODO
