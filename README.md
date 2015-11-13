@@ -44,7 +44,9 @@ After this, the trackpad stopped working entirely (not even basic movements and 
 TODO
 ```
 
-Since the error message mentioned not being able to identify the protocol, I then tried with various other alternatives for that option. Eventually, the following configuration gave me a different error:
+Since the error message mentioned not being able to identify the protocol, I looked up the possible alternatives in `man synaptics`, which lists `auto-dev`, `event`, `psaux`, `psm`.
+
+The following configuration gave me a different error:
 
 ```
 Section "InputClass"
@@ -88,3 +90,48 @@ EndSection
 [389749.840] (EE) PreInit returned 11 for "Apple Inc. Magic Trackpad 2"
 [389749.840] (II) UnloadModule: "synaptics"
 ```
+
+I also tried tapping into the raw event stream, and after playing around with byte sizes, I concluded that the events are 24 bytes each, and can be print like:
+
+```bash
+% sudo od -x -w24 /dev/input/event17
+0000000 64d8 5646 0000 0000 d4e1 0007 0000 0000 0002 0000 ffff ffff
+0000030 64d8 5646 0000 0000 d4e1 0007 0000 0000 0000 0000 0000 0000
+0000060 64d8 5646 0000 0000 ffde 0007 0000 0000 0002 0000 fffe ffff
+0000110 64d8 5646 0000 0000 ffde 0007 0000 0000 0000 0000 0000 0000
+0000140 64d8 5646 0000 0000 2ad3 0008 0000 0000 0002 0000 ffff ffff
+0000170 64d8 5646 0000 0000 2ad3 0008 0000 0000 0000 0000 0000 0000
+0000220 64d8 5646 0000 0000 55cb 0008 0000 0000 0002 0000 ffff ffff
+0000250 64d8 5646 0000 0000 55cb 0008 0000 0000 0000 0000 0000 0000
+0000300 64d8 5646 0000 0000 da9a 0008 0000 0000 0002 0000 fffc ffff
+0000330 64d8 5646 0000 0000 da9a 0008 0000 0000 0000 0000 0000 0000
+0000360 64d8 5646 0000 0000 308a 0009 0000 0000 0002 0001 0002 0000
+0000410 64d8 5646 0000 0000 308a 0009 0000 0000 0000 0000 0000 0000
+0000440 64d8 5646 0000 0000 5b82 0009 0000 0000 0002 0001 0003 0000
+0000470 64d8 5646 0000 0000 5b82 0009 0000 0000 0000 0000 0000 0000
+0000520 64d8 5646 0000 0000 8a62 0009 0000 0000 0002 0001 0004 0000
+0000550 64d8 5646 0000 0000 8a62 0009 0000 0000 0000 0000 0000 0000
+0000600 64d8 5646 0000 0000 b559 0009 0000 0000 0002 0001 0005 0000
+0000630 64d8 5646 0000 0000 b559 0009 0000 0000 0000 0000 0000 0000
+0000660 64d8 5646 0000 0000 e051 0009 0000 0000 0002 0001 0004 0000
+0000710 64d8 5646 0000 0000 e051 0009 0000 0000 0000 0000 0000 0000
+0000740 64d8 5646 0000 0000 0b49 000a 0000 0000 0002 0001 0001 0000
+0000770 64d8 5646 0000 0000 0b49 000a 0000 0000 0000 0000 0000 0000
+0001020 64d8 5646 0000 0000 3642 000a 0000 0000 0002 0000 0001 0000
+0001050 64d8 5646 0000 0000 3642 000a 0000 0000 0002 0001 0002 0000
+0001100 64d8 5646 0000 0000 3642 000a 0000 0000 0000 0000 0000 0000
+0001130 64d8 5646 0000 0000 6521 000a 0000 0000 0002 0000 0001 0000
+0001160 64d8 5646 0000 0000 6521 000a 0000 0000 0002 0001 0002 0000
+0001210 64d8 5646 0000 0000 6521 000a 0000 0000 0000 0000 0000 0000
+0001240 64d8 5646 0000 0000 9019 000a 0000 0000 0002 0000 0001 0000
+0001270 64d8 5646 0000 0000 9019 000a 0000 0000 0002 0001 0001 0000
+0001320 64d8 5646 0000 0000 9019 000a 0000 0000 0000 0000 0000 0000
+```
+
+Let's try to break a single row down:
+ - The first 16 bytes are probably just a timestamp (the second byte increments by one every second)
+ - The next 8 bytes seem to represent the relative position of the cursor, basically the direction in which the finger is moving on the trackpad (positive towards the bottom and to the left of the surface of the trackpad).
+
+Notably, events seem to only be produced when the finger is actually moving (not tapping or pressing), which suggests that the device is not even emitting events related to multitouch or pressure sensitivity at all.
+
+At this point, my conclusion is that the more advanced functionalities are disabled in hardware, and only OSX knows the magic combination to unlock them. When plugged to any other computer, the trackpad will only send basic events.
